@@ -1,0 +1,6 @@
+# Raw transcript files (summarized in sources/)
+transcripts/*.txt
+
+# System files
+.DS_Store
+*.swp
