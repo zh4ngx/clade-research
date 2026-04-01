@@ -20,7 +20,7 @@
 ### How do components communicate?
 
 - POSIX: Byte streams (pipes, sockets, files)
-- CLADE: Asynchronous A2A negotiation over Tailscale mesh (WAN-latency-aware)
+- CLADE: Asynchronous A2A negotiation over mesh (Tailscale or rust-libp2p, WAN-latency-aware)
 
 ### How is security enforced?
 
@@ -58,7 +58,16 @@
 
 #### Agent-to-Agent (A2A) Negotiation
 - **WAN as a Feature:** The network latency of Tailscale over WAN forces the design of highly resilient, asynchronous communication protocols.
-- **Behavior:** Agents must not rely on instantaneous, centralized compute. Instead, they communicate via the Tailscale mesh to:
+- **Networking options:**
+  - **Current:** Tailscale mesh (coordination server, WireGuard tunnels)
+  - **Under evaluation:** rust-libp2p — decentralized alternative that aligns with CLADE's design principles:
+    - **DHT peer discovery** (Kademlia) — no coordination server, peers self-organize
+    - **Gossipsub** — efficient broadcast for swarm task bidding and state propagation
+    - **DCUtR hole punching** — decentralized NAT traversal, no relay servers needed (AutoNAT detects NAT, Circuit Relay v2 provides fallback, DCUtR upgrades to direct connection)
+    - **Wasm compilation** — agents could carry their own networking stack; libp2p compiles to wasm32
+    - **mDNS** — zero-infrastructure LAN discovery for same-room nodes
+    - **Transport flexibility** — QUIC (1-RTT, no head-of-line blocking), WebRTC (browser-to-browser), TCP with Noise encryption
+- **Behavior:** Agents must not rely on instantaneous, centralized compute. Instead, they communicate via the mesh to:
   - Broadcast local state.
   - Bid on discrete tasks (e.g., "Node B has available VRAM, claiming the test-generation task").
   - Pass state and context securely across the network.
@@ -72,6 +81,7 @@
 | 2026-03-25 | Wasm for agent execution layer | Near-zero cold start, capability-based security, hardware-agnostic portability |
 | 2026-03-25 | Vulkan backend for AMD GPUs | ROCm too brittle; Vulkan offers pragmatic stability via NixOS |
 | 2026-03-25 | 8B-14B quantized models per node | Local inference doesn't need full repo context; micro-decisions only |
+| 2026-04-01 | Evaluate rust-libp2p for A2A networking | DHT/Gossipsub/DCUtR align with decentralized swarm design; Wasm compilation fits execution layer; could complement or replace Tailscale dependency |
 
 ## References
 
