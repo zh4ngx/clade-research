@@ -153,7 +153,9 @@ These are ambiguous items that may or may not contradict v1 constraints — they
 
 3. **"The agent as von Neumann machine" (insights.md)** — The v1 constraints describe agents as patterns in a discrete lattice, not as von Neumann machines with fetch-decode-execute cycles. The von Neumann framing may still be useful as a *logical* abstraction (the agent issues requests, waits for responses), but it's not the *physical* reality. Is the von Neumann metaphor load-bearing, or should it be replaced with the "data-flow-wavefront" model from the CRDT topology?
 
+4. **XNOR-popcount as the sole arithmetic primitive** (research-constraints-v1.md Modules A & B) — Insights Theme 2 now establishes that LUT6 cells can evaluate *any* Boolean function ($2^{2^K}$ possibilities), not just XNOR (a linearly separable subset). The v1 constraints describe XNOR-popcount as the fundamental operation throughout, but this is the matrix-multiplication emulation paradigm — it limits every neuron to Linear Threshold Gate behavior. XNOR-popcount is not wrong (it's a valid special case for dense uniform operations), but it should not be the ceiling. The constraints doc needs a section on full-LUT evaluation as the default, with XNOR-popcount as the optimized fallback for provably linear operations. This is a framing upgrade, not a contradiction — but it affects every module that references XNOR-popcount as the primitive.
+
 ---
 
-*Last updated: 2026-03-27*
+*Last updated: 2026-03-28*
 *Next action: Walk through each item and resolve deprecation decisions.*
