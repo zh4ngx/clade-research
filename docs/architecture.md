@@ -83,6 +83,7 @@
 | 2026-03-25 | 8B-14B quantized models per node | Local inference doesn't need full repo context; micro-decisions only |
 | 2026-04-01 | Evaluate rust-libp2p for A2A networking | DHT/Gossipsub/DCUtR align with decentralized swarm design; Wasm compilation fits execution layer; could complement or replace Tailscale dependency |
 | 2026-04-04 | Rust-Haskell → Rust-Lean 4 split | Lean 4 dependent types enable formal verification of agentic intent (Curry-Howard); Rust affine types handle resource safety; WASI/.wit as semantic boundary; CA rules verified before FPGA synthesis |
+| 2026-04-04 | Agentic OS frontier challenges documented | Security (Landlock/Wasm), verification gap (thin-kernel Wasm OS), serialization tax (shared latent spaces, Roadrunner), edge density (1-bit Bonsai), cognitive scaling (micro-agent swarms) |
 
 ## References
 
