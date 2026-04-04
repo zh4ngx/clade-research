@@ -18,9 +18,15 @@
 
 ## 2. Temporal Performance Decay (Verification Gap)
 
-**Problem:** Agent success rates drop during long-horizon tasks (>20 actions). State divergence — internal model drifts from actual state → recursive error propagation.
+**Problem:** Agent success rates drop during long-horizon tasks (>20 actions). State divergence — internal model drifts from actual state → recursive error propagation. OSWorld-Gold (ICML 2026) shows success rates falling below 25% past 20 actions. In traditional setups (e.g., GEM), verification is post-hoc — the system parses agent text output and evaluates after the fact, rather than verifying actions at computation time.
 
-**Solution:** Local-First Thin-Kernel Wasm OS. 1-bit weights integrated into kernel memory management. Every agentic decision is an atomic, verified Wasm instruction. Deterministic state eliminates drift.
+**Root Cause:** Intelligent models and fast runtimes (e.g., Boxer Wasm runtime) remain functionally siloed. Agents interact via high-overhead POSIX layers, creating a gap between what the agent thinks happened and what actually happened. State bloat accumulates; a single misinterpreted command cascades into recursive error propagation.
+
+**Solution: Thin-Kernel Wasm OS + 1-Bit Swarm**
+
+- **Wasm-native state** — remove the traditional host OS. Embed 1-bit weight parameters directly into kernel memory management. Every agentic decision is an atomic, verified Wasm instruction. The agent's state cannot diverge from system state because they ARE the same Wasm state.
+- **1-bit swarm coordination** — PrismML 1-bit Bonsai 8B (Q1_0_g128) packs 8B parameters into ~1.15 GB. Hundreds of sub-1GB agent cells coexist in shared memory. Using Wasm Memory64, swarms bypass message-passing and coordinate via 128-bit SIMD + Roadrunner zero-copy transfers.
+- **Formal execution sandboxing** — deterministic state maintained throughout agent lifespan. No output parsing, no post-hoc verification. The instruction IS the proof.
 
 **CLADE Mapping:** This is [`kernel_boundaries.md`](kernel_boundaries.md) — the K23 microkernel with deterministic WCET. The RISC-V safety core provides bounded execution time; the WAMR sandbox ensures agent logic can't corrupt kernel state. The 1-bit BSCA lattice ([`insights.md`](insights.md) Theme 2) provides the always-on fabric that maintains state coherence without relying on the LLM.
 
