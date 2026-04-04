@@ -139,6 +139,47 @@ Module B specifies that the recurrent core (the "liquid") is fixed and randomly 
 
 The inhibitory population acts as the hardware's immune system against Hebbian runaway. Design the lattice with a tuned ratio of excitatory to inhibitory LUTs (studies suggest ~80/20 E/I split in biological cortical circuits). The inhibitory truth tables are fixed — they implement hard suppression rules, not learned ones. Only the excitatory readout weights are plastic via latent-accumulation Hebbian updates.
 
+### 5. Training Methods for Binarized Systems (2026-04-04)
+
+Standard backpropagation fails on binary weights (non-differentiable). Two paradigms:
+
+**Approach A: Gradient Approximation (STE)**
+Straight-Through Estimator executes forward passes in strict binary but pretends the activation was smooth during backward pass. **Catch:** requires maintaining high-precision shadow weights during training, usually needing a GPU. Only binarized for deployment.
+
+**Approach B: Gradient-Free Learning (Pure Binary)**
+Severs dependency on backpropagation entirely. No floating-point shadow weights:
+- **Evolutionary / Genetic Algorithms:** heterogeneous binary grid as digital DNA
+- **Evolution Strategies (ES):** estimates pseudo-gradient by randomly perturbing binary weights
+- **Gradient-Free RL / Q-Learning:** grid as agent interacting with environment
+- **Hebbian / STDP:** biologically inspired, purely local (see Theme 4 corollary)
+
+**Implication for CLADE:** The BSCA lattice uses STDP (Approach B). But the initial rule set (LUT truth tables, attractor basin topology) could be seeded via STE on a GPU (Approach A), then handed off to on-device STDP for continuous adaptation. "Compiled by GPU, refined by silicon."
+
+### 6. FPGA Modification Levels (2026-04-04)
+
+Three levels of hardware modification for continuous learning and context-switching:
+
+| Level | Method | Speed | Use Case |
+|-------|--------|-------|----------|
+| **System 1** | Full reconfiguration ("firmware flash") | ms–sec, stops system | Initial deployment |
+| **System 2** | Dynamic Partial Reconfiguration (DPR / "hot swap") | μs–ms, rest of chip runs | Macro context-switching (swap vision→audio agent) |
+| **System 3** | LUTRAM / BRAM weight updates | 1 clock cycle (ns) | Micro-level STDP learning |
+
+**The CLADE Synthesis:** Combine System 2 and System 3. LUTRAM for real-time STDP within an active agent. DPR to hot-swap entire agent blocks as the OS demands. This is the hardware equivalent of Wasm module instantiation — fast load, fast swap, fast adaptation.
+
+### 7. Implementation Starting Points (2026-04-04)
+
+**Software Simulation (PyTorch/snnTorch):**
+2D CA block as neuromorphic processor. Leaky Integrate-and-Fire (LIF) neurons in heterogeneous grid. No STE — pure STDP learning based on temporal firing difference between neighbors. Visualize sparse spiking activity over time.
+
+**Hardware (Verilog/SpinalHDL):**
+Parallel asynchronous SNN block for FPGA. LIF neuron using only addition (membrane potential accumulation) and comparator (firing threshold). Localized STDP circuit — no global clock-synchronized backprop. Tile into 2D grid with 1-bit spike wires between neighbors.
+
+**Binary STDP Implementation:**
+Two approaches for learning with 1-bit weights:
+- **Hidden Accumulator (Trick A):** 3-4 bit counter per weight. STDP increments counter; 1-bit weight flips on overflow. Forward pass stays binary.
+- **Stochastic STDP (Trick B):** No counter. Causal spikes trigger small random probability (~5%) to flip. Statistically mimics smooth STDP over millions of spikes. Minimum memory footprint.
+
 ## Open Questions
 
 - What would a "memory load/store" instruction set look like for an LLM?
