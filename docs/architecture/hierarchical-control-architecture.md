@@ -50,7 +50,7 @@ Hard VQ wastes bits (13.3 bits from 12,288-bit state). Soft VQ-VAE: BSCA receive
 
 ## 7. WebGPU Sparse Ops
 
-CA updates are sparse. WebGPU: sparse matrix formats, indirect dispatch, workgroup barriers. 4096 cells at 1% activity → 40 active cells → single workgroup. Same code for research (browser) and deployment (native).
+CA updates are sparse. WebGPU: sparse matrix formats, indirect dispatch, workgroup barriers. 4096 cells at 1% activity → 40 active cells → single workgroup. Same code for research (browser) and deployment (native). Higher abstraction wins here because sparse workloads match WebGPU's dispatch model better than raw Vulkan compute (dense workloads → close-to-metal wins, sparse workloads → indirect dispatch wins).
 
 ## Hybrid Architecture
 
