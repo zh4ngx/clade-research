@@ -50,7 +50,7 @@ SSMs exploit GPU SRAM parallel scans. SNNs/CAs want neuromorphic hardware. The F
 
 ## Multi-Agent Consultation Results
 
-Four independent models (CC, QC, GC, Kimi) reviewed this architecture. Consensus:
+Five independent models (CC, QC, GC, Kimi, Qwen) reviewed this architecture. Consensus:
 
 **Agreement:**
 - Legitimate research direction
@@ -67,6 +67,8 @@ Four independent models (CC, QC, GC, Kimi) reviewed this architecture. Consensus
 
 **Recommended starting point:** SSM + external memory + trained retrieval gate. Add SNN/CNS once the interface is characterized.
 
+**Qwen's key addition:** SNNs fail at language specifically (dense symbolic vs sparse event-driven mismatch). The heterogeneity is load-bearing — SSM for dense perception, SNN for sparse gating, reconstructive memory. Don't spike where you should attend.
+
 ## Connection to Existing Architecture
 
 **BSCA Fabric (insights.md Theme 2):** The CNS layer. LUTs as Boolean logic, heterogeneous graph topologies, hardware-native recurrent memory, attractor basins for decision-making.
@@ -80,6 +82,38 @@ Four independent models (CC, QC, GC, Kimi) reviewed this architecture. Consensus
 **Self-Distillation (self-distillation-context-compression.md):** How the CNS layer learns. Feedback absorbed into weights rather than growing context. STDP on the BSCA lattice is a 1-bit form of distillation.
 
 **CRDT State Topology (idea-frontier-v1.md §3):** External memory as CRDT-managed state. The CNS layer operates on CRDT deltas — binary payloads that propagate state changes as structured patterns.
+
+## Why Not All SNN
+
+If the brain is spiking, why not make the whole system an SNN? Because language is the wrong fit for spikes.
+
+Language requires dense symbolic representations (4096-dim continuous embeddings), graduated similarity, soft attention (weighted sums over tokens), and massive dense parallel computation. SNNs communicate via sparse binary spikes — a single spike conveys very little. They can't naturally compute softmax or weighted sums.
+
+Empirically, SNNs for NLP consistently achieve 20-30% of dense net accuracy at the same parameter count, even on simple tasks. The gap on language generation is catastrophic.
+
+SNNs win at event detection, temporal pattern recognition, sensorimotor control, and ultra-low-power inference on neuromorphic chips — when the problem is sparse and event-driven. Language is neither.
+
+**The right split:** SSM for perception (dense, continuous, high-bandwidth), SNN for gating (sparse, event-driven, discrete decisions). Don't spike where you should attend.
+
+## Biological Memory Is Reconstructive
+
+External memory shouldn't be a clean database query. Biological memory is:
+
+- **Content-addressable:** Retrieval via associative cue, not address lookup. A smell triggers a childhood memory.
+- **Reconstructive:** The hippocampus stores context (when, where, emotional state), not the event itself. Reassembly on recall produces interference, confabulation, and drift.
+- **Plastic:** Memories change through interference. Storage is not archival.
+
+| Biological Memory | Computational Equivalent |
+|-------------------|------------------------|
+| Short-term (sustained prefrontal firing) | SSM hidden state — active, decaying, lossy |
+| Long-term semantic (synaptic weight changes) | Model weights (SSM parameters) |
+| Long-term episodic (hippocampal contextual binding) | External associative store with contextual tags |
+
+A vector DB with cosine similarity is closer to biological fidelity than a KV store. Imperfect recall forces the SSM to be robust — feature, not bug.
+
+## The Core Tension
+
+The brain evolved over 500M years for real-time embodied navigation on 12 watts — optimized for survival, not language. Language is a 50K-year cultural invention running on top of a navigation/object/social substrate. The architectural principles (sensory → memory → motor with gating) are sound even when binary spikes aren't computationally appropriate for language. The heterogeneity is the point — match paradigm to problem.
 
 ## Open Questions
 
