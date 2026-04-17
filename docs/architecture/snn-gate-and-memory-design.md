@@ -143,6 +143,59 @@ User asks: "What did we decide about the database schema last week?"
 
 Partially correct with expressed uncertainty — because memory retrieval was genuinely lossy. More honest than a Transformer that confidently retrieves but may hallucinate.
 
+## Implementation Strategy
+
+Source: QC practical hardware/software analysis.
+
+### Hardware Assessment
+
+| Hardware | Verdict | Why |
+|----------|---------|-----|
+| FPGA + SRAM | Overengineered for SLM scale | Memory matmul (1024 × 768) is ~3 MB — ~1ms on GPU. FPGA only wins at 100K+ items or sub-ms latency |
+| Neuromorphic (Loihi 2) | Interesting but impractical | Pure spike processor, can't run SSM. Lab access only. Interconnect overhead kills small-batch throughput |
+| GPU (Vulkan/CPU BLAS) | Right tool for research | Associative memory matmul fits in VRAM. Sub-ms retrieval at SLM scale |
+
+Principle: don't build hardware until the architecture is validated in software.
+
+### Software Tiers
+
+**Tier 1: GPU-resident associative matrix (research)**
+
+```python
+class AssociativeMemory:
+    def __init__(self, max_items=1024, dim=768, device="vulkan"):
+        self.M = torch.zeros(max_items, dim, device=device)
+        self.τ = torch.zeros(max_items, device=device)
+        self.n = 0
+
+    def write(self, item, cue, strength=0.1):
+        binding = strength * torch.outer(item, cue)
+        self.M[self.n % max_items] += binding.flatten()
+        self.τ[self.n % max_items] = 0
+        self.n += 1
+
+    def read(self, cue, noise=0.01):
+        similarity = self.M @ cue
+        weights = torch.softmax(similarity / temperature, dim=0)
+        retrieved = weights @ self.M + noise * torch.randn_like(cue)
+        self.τ *= 0.99
+        return retrieved
+```
+
+**Tier 2: CPU RAM + disk persistence** — GPU: SSM + gate, RAM: large memory matrix, SSD: cold snapshots. At 1024×768×4 bytes ≈ 3 MB, fits in RAM easily.
+
+**Tier 3: Production tiered memory** — GPU hot cache → RAM warm → SQLite metadata → Disk cold. Only after architecture validation.
+
+### Recommended Starting Point
+
+1. Associative memory as PyTorch tensor on GPU alongside SSM (same device)
+2. `max_items = 1024` — enough for a week of agentic operation
+3. Three operations: write, read, decay. No plasticity/interference/reconsolidation yet
+4. Add biological properties once core loop works
+5. Hardware optimization only when hitting >10K item scale
+
+Hardware becomes interesting *after* validation. If SSM + memory + SNN gate beats a baseline Transformer, then optimize for deployment. That's a deployment problem, not a research problem.
+
 ## Research Contribution
 
 1. **Genuine uncertainty** — agent admits it because memory is lossy, not because prompted
