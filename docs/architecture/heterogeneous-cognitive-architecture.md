@@ -12,6 +12,19 @@ Most AI systems use one compute paradigm everywhere (transformers). The brain do
 | **Memory** | External store (differentiable or KV) | Hippocampus | Persistent storage, retrieval, consolidation |
 | **CNS** | CA / BNN / SNN | Prefrontal cortex / basal ganglia | Routing, gating, decision-making |
 
+## Control Plane vs Data Plane
+
+The original CLADE concept had L = Latent — continuous representations flowing between components. The BSCA shift made everything binary spikes. Both are correct, but for different channels:
+
+| Channel | Format | Purpose | Analogy |
+|---------|--------|---------|---------|
+| **Control plane** | Binary spikes (BSCA) | When/what to do — gate triggers, routing decisions | Neural action potentials |
+| **Data plane** | Latent vectors (continuous) | What content to operate on — SSM state, memory results | Graded potentials, neuromodulation |
+
+Control plane: sparse, discrete, event-driven. Maps to FPGA/neuromorphic. Data plane: dense, continuous, information-rich. Maps to GPU/SRAM.
+
+The VQ bottleneck bridges them — reads data plane, activates control plane. But the data plane persists. Hard VQ (12,288 bits → 13.3 bits) was trying to compress the data plane into the control plane. The right answer: BSCA is control, latent is data, they're complementary. The brain does this: action potentials trigger events, graded potentials carry analog information. Not everything is a spike.
+
 ## Why Each Piece
 
 **SSM for language:** Well-validated. Linear-time inference, continuous state compression, no KV cache explosion. The hidden state is the compressed perception of the input. Fatal weakness: lossy, irreversible compression. Once the state forgets, it's gone.
