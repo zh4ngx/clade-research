@@ -1,8 +1,8 @@
 # SNN Gate & Memory Design
 
-> Concrete design for the thalamic gate and hippocampal memory subsystem.
+Related: [heterogeneous-cognitive-architecture](heterogeneous-cognitive-architecture.md), [bsca-fabric](bsca-fabric.md), [pulse-feedback](pulse-feedback.md)
 
-Companion to [heterogeneous-cognitive-architecture.md](heterogeneous-cognitive-architecture.md). Source: Qwen deep-dive on the three-layer architecture.
+Concrete design for the SNN gating layer and associative memory subsystem from [heterogeneous-cognitive-architecture](heterogeneous-cognitive-architecture.md). Source: Qwen deep-dive on the three-layer architecture.
 
 ## SNN Gating Layer
 
@@ -15,7 +15,7 @@ The SNN receives two input streams:
 
 ### Output Neurons
 
-Each SNN output neuron corresponds to a pathway. Membrane potential `v` fires when `v > threshold`:
+Each SNN output neuron corresponds to a pathway. The neuron maintains a membrane potential `v` and fires when `v > threshold`:
 
 ```
                  ┌─────────────────────────────────┐
@@ -29,7 +29,7 @@ Each SNN output neuron corresponds to a pathway. Membrane potential `v` fires wh
                  └─────────────────────────────────┘
 ```
 
-Decision mechanism: spike competition. At each timestep (or every N timesteps), the gate evaluates which pathway activates. Multiple simultaneous spikes resolved by priority ordering.
+**Decision mechanism:** spike competition. At each timestep (or every N timesteps), the gate evaluates which pathway activates. Multiple simultaneous spikes resolved by priority ordering.
 
 ### Training Protocol
 
@@ -39,12 +39,12 @@ Spikes are non-differentiable step functions. Three approaches:
 |--------|-----|----------|
 | Surrogate gradients | Replace step with smooth approximation during backprop | Standard, but gradients are approximate |
 | Straight-through estimator | Pretend derivative of step is 1 | Simple, noisy gradients |
-| RL with discrete actions | Treat each spike as a discrete action, reward for correct output | No gradients through gate, handles discreteness (PPO/DQN) |
+| RL with discrete actions | Treat each spike as a discrete action, reward for correct output | No gradients through gate, handles discreteness properly (PPO/DQN) |
 
 **Phased training:**
-1. Pretrain SSM + projection so SNN receives good representations
-2. Freeze SSM, train SNN gate with surrogate gradients on supervised objective (correct pathway per timestep)
-3. Fine-tune end-to-end with RL — reward is task completion, SNN learns timing of decisions
+1. **Pretrain SSM + projection** so the SNN receives good representations
+2. **Freeze SSM, train SNN gate** with surrogate gradients on supervised objective (correct pathway per timestep)
+3. **Fine-tune end-to-end with RL** — reward is task completion, SNN learns timing of retrieval/tool/generation decisions
 
 ## Associative Memory Layer
 
@@ -82,20 +82,20 @@ Not a clean vector DB. Biological memory is noisy, plastic, and reconstructive.
 
 | Property | Biological Motivation | Computational Effect |
 |----------|----------------------|---------------------|
-| Interference | Similar memories blend | Writing A near B corrupts both — system learns robustness |
-| Decay | Unused memories fade | Unretrieved items lose amplitude, encourages recency |
-| Cue-based retrieval | Smell triggers childhood memory | Retrieval cue is projection of SSM state |
-| Reconstruction | Retrieve fragments, not the memory | Weighted sum of all stored items, inherently lossy |
-| Plasticity | Memories change when recalled | Retrieved item modified before re-writing (reconsolidation) |
+| **Interference** | Similar memories blend together | Writing A near B corrupts both — system learns robustness |
+| **Decay** | Unused memories fade | Unretrieved items lose amplitude, encourages recency |
+| **Cue-based retrieval** | A smell triggers a childhood memory | Retrieval cue is projection of SSM state; similarity triggers partial recall |
+| **Reconstruction** | You retrieve fragments, not the memory itself | Output is weighted sum of all stored items (like attention), inherently lossy |
+| **Plasticity** | Memories change when recalled (reconsolidation) | Retrieved item is modified before re-writing |
 
 ### How This Differs from Attention
 
 Structurally similar (weighted sum over stored values), but:
 
 1. **Plasticity:** Memories change through interference and reconsolidation. Attention operates on static KV cache.
-2. **Capacity limits:** Fixed matrix size. Writing beyond capacity causes destructive interference.
-3. **Noisy retrieval:** Corrupted reconstructions force the SSM to fill gaps.
-4. **Forgetting is a feature:** No GC needed. Unused memories fade.
+2. **Capacity limits:** Fixed matrix size. Writing beyond capacity causes destructive interference — old memories overwritten. This is how human memory actually works.
+3. **Noisy retrieval:** Never gets "perfect" memories — corrupted reconstructions force the SSM to fill gaps.
+4. **Forgetting is a feature:** No garbage collection needed. Unused memories fade. The system relies on SSM state for what matters.
 
 ## Data Flow
 
@@ -135,13 +135,13 @@ Structurally similar (weighted sum over stored values), but:
 
 User asks: "What did we decide about the database schema last week?"
 
-1. **SSM** encodes input → `h_t` representing the query
-2. **SNN Gate** receives `h_t`, cue matches "database schema decision", Neuron B (retrieve) spikes
-3. **Memory Layer** queries associative matrix → noisy, partially decayed reconstruction: "we decided... something about... tables..."
-4. **SNN Gate** receives retrieved memory, Neuron A (generate) spikes
+1. **SSM** encodes the input. Produces `h_t` representing the query.
+2. **SNN Gate** receives `h_t`. Cue pattern matches "database schema decision". Neuron B (retrieve) spikes.
+3. **Memory Layer** queries associative matrix. Returns a noisy, partially decayed reconstruction — "we decided... something about... tables..."
+4. **SNN Gate** receives retrieved memory as context. Neuron A (generate) spikes.
 5. **Output:** "Last week we discussed the schema. We decided on a denormalized structure, though I'm fuzzy on the exact columns."
 
-Partially correct with expressed uncertainty — because memory retrieval was genuinely lossy. More honest than a Transformer that confidently retrieves but may hallucinate.
+The system gives a partially correct answer with expressed uncertainty — because the memory retrieval was genuinely lossy. Not a bug. More honest than a Transformer that confidently retrieves the exact vector but may hallucinate.
 
 ## Implementation Strategy
 
@@ -151,16 +151,15 @@ Source: QC practical hardware/software analysis.
 
 | Hardware | Verdict | Why |
 |----------|---------|-----|
-| FPGA + SRAM | Overengineered for SLM scale | Memory matmul (1024 × 768) is ~3 MB — ~1ms on GPU. FPGA only wins at 100K+ items or sub-ms latency |
-| Neuromorphic (Loihi 2) | Interesting but impractical | Pure spike processor, can't run SSM. Lab access only. Interconnect overhead kills small-batch throughput |
-| GPU (Vulkan/CPU BLAS) | Right tool for research | Associative memory matmul fits in VRAM. Sub-ms retrieval at SLM scale |
+| **FPGA + SRAM** | Overengineered for SLM scale | Memory matrix (1024 items × 768 dims) is a ~3 MB matmul — takes ~1ms on GPU. FPGA only wins at hundreds of thousands of items or sub-ms robotics latency |
+| **Neuromorphic (Loihi 2)** | Interesting but impractical | Pure spike processor — can't run SSM. Intel lab access only, not commercially available. Interconnect overhead kills throughput for small-batch inference |
+| **GPU (Vulkan/CPU BLAS)** | Right tool for research | Associative memory matmul fits easily in VRAM. Sub-ms retrieval at SLM scale |
 
-Principle: don't build hardware until the architecture is validated in software.
+**The principle:** Don't build hardware until the architecture is validated in software. A 12 MB matrix-vector multiply on GPU is perfectly adequate for research.
 
 ### Software Tiers
 
 **Tier 1: GPU-resident associative matrix (research)**
-
 ```python
 class AssociativeMemory:
     def __init__(self, max_items=1024, dim=768, device="vulkan"):
@@ -178,27 +177,42 @@ class AssociativeMemory:
         similarity = self.M @ cue
         weights = torch.softmax(similarity / temperature, dim=0)
         retrieved = weights @ self.M + noise * torch.randn_like(cue)
-        self.τ *= 0.99
+        self.τ *= 0.99  # decay all traces
         return retrieved
 ```
+Single matmul retrieval on GPU — fast enough for research. Start here.
 
-**Tier 2: CPU RAM + disk persistence** — GPU: SSM + gate, RAM: large memory matrix, SSD: cold snapshots. At 1024×768×4 bytes ≈ 3 MB, fits in RAM easily.
+**Tier 2: CPU RAM with disk persistence (scale-up)**
+- GPU: SSM + SNN gate
+- RAM: Large memory matrix (32 GB)
+- SSD: Compressed memory snapshots (cold storage for decayed traces)
 
-**Tier 3: Production tiered memory** — GPU hot cache → RAM warm → SQLite metadata → Disk cold. Only after architecture validation.
+At 1024 items × 768 dims × 4 bytes ≈ 3 MB — fits in RAM easily. Offloading only needed above ~10K items / ~1 GB.
+
+**Tier 3: Production tiered memory (deployment)**
+```
+GPU hot cache → RAM warm matrix → SQLite metadata → Disk cold snapshots
+```
+Essentially L1/L2/RAM/disk tiering applied to associative memory. Only relevant after the architecture is validated and you're optimizing for deployment.
 
 ### Recommended Starting Point
 
-1. Associative memory as PyTorch tensor on GPU alongside SSM (same device)
+1. Associative memory as PyTorch tensor on GPU alongside SSM — same device, no copying
 2. `max_items = 1024` — enough for a week of agentic operation
-3. Three operations: write, read, decay. No plasticity/interference/reconsolidation yet
-4. Add biological properties once core loop works
-5. Hardware optimization only when hitting >10K item scale
+3. Three operations only: **write**, **read**, **decay**. No plasticity, no interference, no reconsolidation yet
+4. Add biological properties (plasticity, interference, reconsolidation) once the core loop works
+5. Hardware optimization only when hitting scale limits (>10K items)
 
-Hardware becomes interesting *after* validation. If SSM + memory + SNN gate beats a baseline Transformer, then optimize for deployment. That's a deployment problem, not a research problem.
+The hardware question becomes interesting *after* the architecture is validated. If SSM + associative memory + SNN gate beats a baseline Transformer on agentic tasks, then optimize the memory path for deployment. That's a deployment problem, not a research problem.
 
 ## Research Contribution
 
-1. **Genuine uncertainty** — agent admits it because memory is lossy, not because prompted
-2. **No KV cache explosion** — O(N log N) perception, O(1) gate, O(num_memories) retrieval
-3. **Persistent, evolving memory** across sessions that naturally degrades
-4. **Testable hypothesis:** SSM + plastic associative memory + SNN gate vs. Transformer on long-horizon agentic tasks
+This system would demonstrate:
+
+1. **Genuine uncertainty** — the agent admits uncertainty because its memory is lossy, not because you prompted it to
+2. **No KV cache explosion** — SSM handles perception in O(N log N), SNN gate fires in O(1), memory retrieval is O(num_memories), not O(context²)
+3. **Persistent, evolving memory** across sessions that naturally degrades — like a real agent
+4. **Testable hypothesis:** Does SSM + plastic associative memory + SNN gate outperform a Transformer of similar size on long-horizon agentic tasks?
+
+---
+#clade #architecture #snn #memory #design #bio-inspired
