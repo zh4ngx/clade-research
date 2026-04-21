@@ -6,7 +6,7 @@ aliases: [Binarized Spiking Cellular Automata, BSCA, Agentic OS Fabric]
 
 # The BSCA Fabric: Binarized Spiking Cellular Automata
 
-Related: [bms-edge-ml](bms-edge-ml.md), [dual-process-routing](dual-process-routing.md), [hardware-polymorphism](hardware-polymorphism.md)
+Related: [bms-edge-ml](bms-edge-ml.md), [dual-process-routing](dual-process-routing.md), [hardware-polymorphism](hardware-polymorphism.md), [spike-vector-bridge](spike-vector-bridge.md)
 
 ## The Sensory-Cognitive Split
 
